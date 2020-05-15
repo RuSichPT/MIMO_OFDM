@@ -8,7 +8,7 @@ end
 semilogy(snr-(10*log10(bps)),ber,str,'LineWidth',N)
 hold on
 grid on
-xlim([0 snr(end)])
+xlim([0 snr(end)-ceil(10*log10(bps))])
 ylim([10^-6 10^0]);
 xlabel('E_b / N_0 , dB')
 ylabel('BER')

@@ -2,15 +2,15 @@
 clear;clc;close all;
 %% Управление
 flag_chanel = 'RAYL'; % 'AWGN' ,'RAYL','STATIC', 'BAD'
-flag_cor_MIMO = 1; % 1-коррекция АЧХ (эквалайзер для MIMO) 2-Аламоути
+flag_cor_MIMO = 2; % 1-коррекция АЧХ (эквалайзер для MIMO) 2-Аламоути
 flag_cor_SISO = 1; % коррекция АЧХ (эквалайзер для SISO)
-flag_wav_MIMO = 0; % вейвлет шумоподавление для MIMO
-flag_wav_SISO = 0; % вейвлет шумоподавление для SISO
+flag_wav_MIMO = 1; % вейвлет шумоподавление для MIMO
+flag_wav_SISO = 1; % вейвлет шумоподавление для SISO
 %% Параметры системы MIMO
 prm.numTx = 2; % Кол-во излучающих антен
 prm.numRx = 2; % Кол-во приемных антен
 prm.numSTS = prm.numTx; % Кол-во потоков
-prm.M = 4;% Порядок модуляции
+prm.M = 16;% Порядок модуляции
 prm.bps = log2(prm.M); % Коль-во бит на символ в секунду
 %% Параметры системы SISO
 prm.M_siso = 16;% Порядок модуляции
@@ -38,14 +38,13 @@ if flag_cor_MIMO == 2
     ostbcComb = comm.OSTBCCombiner('NumReceiveAntennas',prm.numRx);
     prm.n = prm.n/prm.numTx;
 end 
-SNR = 0:40;
-Exp = 1;% Кол-во опытов
+SNR = 0+floor(10*log10(prm.bps)):50+floor(10*log10(prm.bps));
+Exp = 50;% Кол-во опытовц
 for indExp = 1:Exp
     %% Создание канала
     [H,H_siso] = create_chanel(flag_chanel,prm);  
     for indSNR = 1:length(SNR) 
-        %% Формируем данные
-          
+        %% Формируем данные       
         Inp_data = randi([0 1],prm.n,1); % Передаваемые данные    
         Inp_Mat = reshape(Inp_data,length(Inp_data)/prm.bps,prm.bps); %Группируем биты 
         Inp_Sym = bi2de(Inp_Mat);  % Входные данные в символах
@@ -151,16 +150,15 @@ end
 ber_mean = mean(ber,1);
 ber_siso_mean = mean(ber_siso,1);
 Eb_N0 = 0:40;
-ther_ber_1 = berfading(Eb_N0,'qam',4,1);
-ther_ber_4 = berfading(Eb_N0,'qam',4,4);
-% ther_ber_1 = berawgn(Eb_N0,'qam',4);
-figure(1)
+ther_ber_1 = berfading(Eb_N0,'qam',16,1);
+% ther_ber_1 = berawgn(Eb_N0,'qam',128);
+figure(2)
 plot_ber(ther_ber_1,Eb_N0,1,'g',1.5,0)
-plot_ber(ther_ber_4,Eb_N0,1,'r',1.5,0)
 plot_ber(ber_mean,SNR,prm.bps,'k',1.5,0)
 plot_ber(ber_siso_mean,SNR,prm.bps_siso,'b',1.5,0)
-legend("Теоретическая order = 1","Теоретическая order = 4","MIMO","SISO")%,"Теоретическая order = 4")
-str = [num2str(prm.numTx) 'x' num2str(prm.numRx) '_' flag_chanel '_Wm=' num2str(flag_wav_MIMO)...
+legend('Теоретическая qam 256',['MIMO' num2str(prm.M)],...
+    ['SISO' num2str(prm.M_siso)])%,"Теоретическая order = 4")
+str = ['corM=' num2str(flag_cor_MIMO) '_' num2str(prm.numTx) 'x' num2str(prm.numRx) '_' flag_chanel '_Wm=' num2str(flag_wav_MIMO)...
     '_Ws=' num2str(flag_wav_SISO) '_Mm=' num2str(prm.M)...
     '_Ms=' num2str(prm.M_siso) '_Exp=' num2str(Exp) '.mat'];
 save(str,'ber_mean','ber_siso_mean','SNR','prm')
