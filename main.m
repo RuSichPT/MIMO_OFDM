@@ -1,11 +1,11 @@
 %% ---------Модель MIMO and SISO-------- 
 clear;clc;close all;
 %% Управление
-flag_chanel = 'RAYL'; % 'AWGN' ,'RAYL','STATIC', 'BAD'
-flag_cor_MIMO = 2; % 1-коррекция АЧХ (эквалайзер для MIMO) 2-Аламоути
+flag_chanel = 'RAYL_SPECIAL'; % 'AWGN' ,'RAYL','RIC','RAYL_SPECIAL','STATIC', 'BAD' 
+flag_cor_MIMO = 1; % 1-коррекция АЧХ (эквалайзер для MIMO) 2-Аламоути
 flag_cor_SISO = 1; % коррекция АЧХ (эквалайзер для SISO)
-flag_wav_MIMO = 1; % вейвлет шумоподавление для MIMO
-flag_wav_SISO = 1; % вейвлет шумоподавление для SISO
+flag_wav_MIMO = 0; % вейвлет шумоподавление для MIMO
+flag_wav_SISO = 0; % вейвлет шумоподавление для SISO
 %% Параметры системы MIMO
 prm.numTx = 2; % Кол-во излучающих антен
 prm.numRx = 2; % Кол-во приемных антен
@@ -19,7 +19,7 @@ prm.Nsymb_ofdm_p = 1; % Кол-во пилотных символов OFDM
 %% Параметры OFDM 
 prm.numSC = 450; % Кол-во поднессущих
 prm.N_FFT = 512; % Длина FFT для OFDM
-prm.Nsymb_ofdm = 100; % Кол-во символов OFDM от каждой антенны
+prm.Nsymb_ofdm = 5; % Кол-во символов OFDM от каждой антенны
 prm.CyclicPrefixLength = 64;  % длина защитных интервалов = 2*Ngi
 prm.tmp_NCI = prm.N_FFT - prm.numSC;
 prm.NullCarrierIndices = [1:prm.tmp_NCI/2 prm.N_FFT-prm.tmp_NCI/2+1:prm.N_FFT]'; % Guards and DC
@@ -28,18 +28,22 @@ prm.n = prm.bps*prm.Nsymb_ofdm*prm.numSC*prm.numTx;% Длина бинарного потока
 prm.n_pilot = prm.Nsymb_ofdm_p*prm.numSC; % Кол-во бит на пилоты SISO
 prm.n_siso = prm.bps_siso*prm.Nsymb_ofdm*prm.numSC;% Длина бинарного потока
 %% Параметры канала
+prm.KFactor = 1;% Для 'RIC'
+prm.SEED = 122;% Для 'RAYL_SPECIAL' 586 122 12   
 prm.SampleRate = 40e6;
 dt = 1/prm.SampleRate;
-prm.tau = [0 1*dt 2*dt];
-prm.pdB = [0 -9 -12];
+% prm.tau = [0 1*dt 2*dt];
+% prm.pdB = [0 -9 -12];
+prm.tau = 5*dt;
+prm.pdB = -10;
 %% ---------Сам скрипт--------
 if flag_cor_MIMO == 2
     ostbcEnc = comm.OSTBCEncoder('NumTransmitAntennas',prm.numTx);
     ostbcComb = comm.OSTBCCombiner('NumReceiveAntennas',prm.numRx);
     prm.n = prm.n/prm.numTx;
 end 
-SNR = 0+floor(10*log10(prm.bps)):50+floor(10*log10(prm.bps));
-Exp = 50;% Кол-во опытовц
+SNR = 0+floor(10*log10(prm.bps)):40+floor(10*log10(prm.bps));
+Exp = 200;% Кол-во опытов
 for indExp = 1:Exp
     %% Создание канала
     [H,H_siso] = create_chanel(flag_chanel,prm);  
@@ -77,11 +81,11 @@ for indExp = 1:Exp
         OFDM_data = [preambula ; OFDM_data];        
         %% Прохождение канала
         switch flag_chanel
-            case 'RAYL'
+            case {'RAYL','RIC','RAYL_SPECIAL'}
 %                 H.Visualization = 'Impulse and frequency responses';
 %                 H.AntennaPairsToDisplay = [2,1];
                 [Chanel_data, H_ist] = H(OFDM_data);
-                [Chanel_data_siso, H_ist_siso] = H_siso(OFDM_data_siso);            
+                [Chanel_data_siso, H_ist_siso] = H_siso(OFDM_data_siso);
             otherwise                  
                 Chanel_data  = OFDM_data*H;
                 Chanel_data_siso  = OFDM_data_siso*H_siso; 
@@ -152,13 +156,13 @@ ber_siso_mean = mean(ber_siso,1);
 Eb_N0 = 0:40;
 ther_ber_1 = berfading(Eb_N0,'qam',16,1);
 % ther_ber_1 = berawgn(Eb_N0,'qam',128);
-figure(2)
+figure(1) 
 plot_ber(ther_ber_1,Eb_N0,1,'g',1.5,0)
 plot_ber(ber_mean,SNR,prm.bps,'k',1.5,0)
 plot_ber(ber_siso_mean,SNR,prm.bps_siso,'b',1.5,0)
 legend('Теоретическая qam 256',['MIMO' num2str(prm.M)],...
     ['SISO' num2str(prm.M_siso)])%,"Теоретическая order = 4")
-str = ['corM=' num2str(flag_cor_MIMO) '_' num2str(prm.numTx) 'x' num2str(prm.numRx) '_' flag_chanel '_Wm=' num2str(flag_wav_MIMO)...
+str = ['DataBase/corM=' num2str(flag_cor_MIMO) '_' num2str(prm.numTx) 'x' num2str(prm.numRx) '_' flag_chanel '_Wm=' num2str(flag_wav_MIMO)...
     '_Ws=' num2str(flag_wav_SISO) '_Mm=' num2str(prm.M)...
     '_Ms=' num2str(prm.M_siso) '_Exp=' num2str(Exp) '.mat'];
-save(str,'ber_mean','ber_siso_mean','SNR','prm')
+% save(str,'ber_mean','ber_siso_mean','SNR','prm')
