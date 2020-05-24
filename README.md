@@ -1,2 +1,2 @@
 # MIMO
-Matlab scripts 
+MIMO + wavelet 
