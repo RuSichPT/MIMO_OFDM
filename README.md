@@ -1,2 +1,2 @@
 # MIMO
-MIMO + wavelet 
+MIMO OFDM + wavelet 
