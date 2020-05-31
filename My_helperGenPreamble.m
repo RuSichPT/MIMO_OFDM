@@ -10,13 +10,13 @@ P = helperGetP(prm.numSTS);
 Pred = P;
 
 % Define LTF(Long training field) and output variable sizes
-ltfTx = complex(zeros(prm.N_FFT,prm.numSTS));
+ltfTx = complex(zeros(prm.numSC,prm.numSTS));
 symLen = prm.N_FFT+prm.CyclicPrefixLength;
 
 % Generate and modulate each LTF symbol
 y = complex(zeros(symLen*Nltf,prm.numSTS));
 for i = 1:Nltf  
-    ltfTx = ltfSC*Pred(:, i).';%(prm.CarriersLocations,:)
+    ltfTx = ltfSC*Pred(:, i).';
     % OFDM modulation
     tmp = ofdmmod(reshape(ltfTx, [prm.numSC,1,prm.numSTS]), ...
         prm.N_FFT, prm.CyclicPrefixLength,prm.NullCarrierIndices);

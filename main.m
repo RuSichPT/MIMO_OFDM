@@ -1,11 +1,11 @@
 %% ---------Модель MIMO and SISO-------- 
 clear;clc;%close all;
 %% Управление
-flag_chanel = 'RAYL'; % 'AWGN' ,'RAYL','RIC','RAYL_SPECIAL','STATIC', 'BAD' 
+flag_chanel = 'STATIC'; % 'AWGN' ,'RAYL','RIC','RAYL_SPECIAL','STATIC', 'BAD' 
 flag_cor_MIMO = 1; % 1-коррекция АЧХ (эквалайзер для MIMO) 2-Аламоути
 flag_cor_SISO = 1; % коррекция АЧХ (эквалайзер для SISO)
-flag_wav_MIMO = 0; % вейвлет шумоподавление для MIMO
-flag_wav_SISO = 0; % вейвлет шумоподавление для SISO
+flag_wav_MIMO = 1; % вейвлет шумоподавление для MIMO
+flag_wav_SISO = 1; % вейвлет шумоподавление для SISO
 %% Параметры системы MIMO
 prm.numTx = 2; % Кол-во излучающих антен
 prm.numRx = 2; % Кол-во приемных антен
@@ -53,7 +53,7 @@ SNR_MAX = 40;
 SNR = 0+floor(10*log10(prm.bps)):SNR_MAX+floor(10*log10(prm.bps*prm.numTx));
 prm.MinNumErr = 100; % Порог ошибок для цикла 
 prm.conf_level = 0.95; % Уровень достоверности
-prm.MAX_indLoop = 10;% Максимальное число итераций в цикле while
+prm.MAX_indLoop = 5;% Максимальное число итераций в цикле while
 Koeff = 1/15;%Кол-во процентов от BER  7%
 Exp = 1;% Кол-во опытов
 for indExp = 1:Exp
@@ -112,9 +112,10 @@ for indExp = 1:Exp
                 otherwise                  
                     Chanel_data  = OFDM_data*H;
                     Chanel_data_siso  = OFDM_data_siso*H_siso; 
-
             end   
-            %% Собственный  шум
+%             % Собственный  шум
+%             Noise_data = awgn(Chanel_data,SNR(indSNR),'measured');
+%             Noise_data_siso = awgn(Chanel_data_siso,SNR(indSNR),'measured');
             [Noise_data,sigma] = my_awgn(Chanel_data,SNR(indSNR));%SNR(indSNR)
             [Noise_data_siso,sigma_siso] = my_awgn(Chanel_data_siso,SNR(indSNR));%SNR(indSNR)
             %% Демодулятор OFDM
@@ -199,13 +200,13 @@ ber_siso_mean = mean(ber_siso,1);
 Eb_N0_M = SNR(1:size(ber_mean,2))-(10*log10(prm.bps));
 Eb_N0_S = SNR(1:size(ber_mean,2))-(10*log10(prm.bps_siso));
 Eb_N0 = 0:60;
-ther_ber_1 = berfading(Eb_N0,'qam',4,1);
-% ther_ber_1 = berawgn(Eb_N0,'qam',128);
+% ther_ber_1 = berfading(Eb_N0,'qam',4,1);
+ther_ber_1 = berawgn(Eb_N0,'qam',16);
 figure() 
 plot_ber(ther_ber_1,Eb_N0,1,'g',1.5,0)
 plot_ber(ber_mean,SNR(1:size(ber_mean,2)),prm.bps,'k',1.5,0)
 plot_ber(ber_siso_mean,SNR(1:size(ber_siso_mean,2)),prm.bps_siso,'b',1.5,0)
-legend('Теоретическая qam 4',['MIMO' num2str(prm.M)],...
+legend('Теоретическая qam 16',['MIMO' num2str(prm.M)],...
     ['SISO' num2str(prm.M_siso)])%,"Теоретическая order = 4")
 str = ['DataBase/corM=' num2str(flag_cor_MIMO) '_' num2str(prm.numTx) 'x' num2str(prm.numRx) '_' flag_chanel '_Wm=' num2str(flag_wav_MIMO)...
     '_Ws=' num2str(flag_wav_SISO) '_Mm=' num2str(prm.M)...
