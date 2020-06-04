@@ -1,20 +1,20 @@
 %% ---------Модель MIMO and SISO-------- 
 clear;clc;%close all;
 %% Управление
-flag_chanel = 'STATIC'; % 'AWGN' ,'RAYL','RIC','RAYL_SPECIAL','STATIC', 'BAD' 
+flag_chanel = 'RAYL_SPECIAL'; % 'AWGN' ,'RAYL','RIC','RAYL_SPECIAL','STATIC', 'BAD' 
 flag_cor_MIMO = 1; % 1-коррекция АЧХ (эквалайзер для MIMO) 2-Аламоути
 flag_cor_SISO = 1; % коррекция АЧХ (эквалайзер для SISO)
-flag_wav_MIMO = 1; % вейвлет шумоподавление для MIMO
-flag_wav_SISO = 1; % вейвлет шумоподавление для SISO
+flag_wav_MIMO = 0; % вейвлет шумоподавление для MIMO
+flag_wav_SISO = 0; % вейвлет шумоподавление для SISO
 %% Параметры системы MIMO
 prm.numTx = 2; % Кол-во излучающих антен
 prm.numRx = 2; % Кол-во приемных антен
 prm.numSTS = prm.numTx; % Кол-во потоков
-prm.M = 16;% Порядок модуляции
+prm.M = 4;% Порядок модуляции
 prm.bps = log2(prm.M); % Коль-во бит на символ в секунду
 prm.LEVEL = 3;% Уровень декомпозиции вейвлет шумоподавления min(wmaxlev(N,'db4'),floor(log2(N)))
 %% Параметры системы SISO
-prm.M_siso = 16;% Порядок модуляции
+prm.M_siso = 4;% Порядок модуляции
 prm.bps_siso = log2(prm.M_siso); % Коль-во бит на символ в секунду
 prm.Nsymb_ofdm_p = 1; % Кол-во пилотных символов OFDM 
 %% Параметры OFDM 
@@ -30,7 +30,7 @@ prm.n_pilot = prm.Nsymb_ofdm_p*prm.numSC; % Кол-во бит на пилоты SISO
 prm.n_siso = prm.bps_siso*prm.Nsymb_ofdm*prm.numSC;% Длина бинарного потока
 %% Параметры канала
 prm.KFactor = 1;% Для 'RIC'
-prm.SEED = 122;% Для 'RAYL_SPECIAL' 586 122 12   
+prm.SEED = 86;% Для 'RAYL_SPECIAL' 586 122 12 23 48 86
 prm.SampleRate = 40e6;
 dt = 1/prm.SampleRate;
 switch flag_chanel
@@ -49,16 +49,18 @@ if flag_cor_MIMO == 2
     ostbcComb = comm.OSTBCCombiner('NumReceiveAntennas',prm.numRx);
     prm.n = prm.n/prm.numTx;
 end
-SNR_MAX = 40;
+SNR_MAX = 100;
 SNR = 0+floor(10*log10(prm.bps)):SNR_MAX+floor(10*log10(prm.bps*prm.numTx));
 prm.MinNumErr = 100; % Порог ошибок для цикла 
 prm.conf_level = 0.95; % Уровень достоверности
-prm.MAX_indLoop = 5;% Максимальное число итераций в цикле while
+prm.MAX_indLoop = 500;% Максимальное число итераций в цикле while
+prm.MaxNumZero = 4; %  max кол-во нулевых точек в цикле while
 Koeff = 1/15;%Кол-во процентов от BER  7%
 Exp = 1;% Кол-во опытов
 for indExp = 1:Exp
     %% Создание канала
-    [H,H_siso] = create_chanel(flag_chanel,prm); 
+    [H,H_siso] = create_chanel(flag_chanel,prm);
+    NumZero = 0; % кол-во нулевых точек
     for indSNR = 1:length(SNR)
         berconf_M = 0;
         berconf_S = 0;
@@ -69,6 +71,9 @@ for indExp = 1:Exp
         LenIntLoop_M = 100;
         condition_M = ((LenIntLoop_M > berconf_M*Koeff)||(ErrNum_M < prm.MinNumErr));
         condition_S = ((LenIntLoop_S > berconf_S*Koeff)||(ErrNum_S < prm.MinNumErr));
+        if (NumZero >= prm.MaxNumZero)
+            break;
+        end
         while (condition_M || condition_S) && (indLoop < prm.MAX_indLoop)
             %% Формируем данные       
             Inp_data = randi([0 1],prm.n,1); % Передаваемые данные    
@@ -104,9 +109,9 @@ for indExp = 1:Exp
             %% Прохождение канала
             switch flag_chanel
                 case {'RAYL','RIC','RAYL_SPECIAL'}
-    %                 H.Visualization = 'Impulse and frequency responses';
+%                     H.Visualization = 'Impulse and frequency responses';
     %                 H.AntennaPairsToDisplay = [2,2];
-    %                 H_siso.Visualization = 'Impulse and frequency responses';
+%                     H_siso.Visualization = 'Impulse and frequency responses';
                     [Chanel_data, H_ist] = H(OFDM_data);
                     [Chanel_data_siso, H_ist_siso] = H_siso(OFDM_data_siso);
                 otherwise                  
@@ -177,6 +182,9 @@ for indExp = 1:Exp
             condition_M = ((LenIntLoop_M > berconf_M/15)||(ErrNum_M < prm.MinNumErr));
             condition_S = ((LenIntLoop_S > berconf_S/15)||(ErrNum_S < prm.MinNumErr));
         end
+        if (ErrNum_M == 0)&&(ErrNum_S==0)
+            NumZero = NumZero+1;
+        end
         ber(indExp,indSNR) = berconf_M;
         ber_siso(indExp,indSNR) = berconf_S;
 %         ber1(indExp,indSNR) = ErrNum_M/(indLoop*length(Inp_data));
@@ -188,7 +196,8 @@ for indExp = 1:Exp
             ErrNum_disp = ErrNum_M;
             name = 'Er_MIMO';
         end
-        fprintf(['Complete %d db ' name ' = %d, ind = %d\n'],SNR(indSNR),ErrNum_disp,indLoop);
+        fprintf(['Complete %d db ' name ' = %d, ind = %d NZ = %d\n'],...
+            SNR(indSNR),ErrNum_disp,indLoop,NumZero);
     end
     fprintf('Exp %d  \n',indExp);
 end
@@ -200,15 +209,20 @@ ber_siso_mean = mean(ber_siso,1);
 Eb_N0_M = SNR(1:size(ber_mean,2))-(10*log10(prm.bps));
 Eb_N0_S = SNR(1:size(ber_mean,2))-(10*log10(prm.bps_siso));
 Eb_N0 = 0:60;
-% ther_ber_1 = berfading(Eb_N0,'qam',4,1);
-ther_ber_1 = berawgn(Eb_N0,'qam',16);
+ther_ber_1 = berfading(Eb_N0,'qam',16,1);
+% ther_ber_1 = berawgn(Eb_N0,'qam',16);
 figure() 
 plot_ber(ther_ber_1,Eb_N0,1,'g',1.5,0)
 plot_ber(ber_mean,SNR(1:size(ber_mean,2)),prm.bps,'k',1.5,0)
 plot_ber(ber_siso_mean,SNR(1:size(ber_siso_mean,2)),prm.bps_siso,'b',1.5,0)
-legend('Теоретическая qam 16',['MIMO' num2str(prm.M)],...
+legend('Теоретическая qam 4',['MIMO' num2str(prm.M)],...
     ['SISO' num2str(prm.M_siso)])%,"Теоретическая order = 4")
 str = ['DataBase/corM=' num2str(flag_cor_MIMO) '_' num2str(prm.numTx) 'x' num2str(prm.numRx) '_' flag_chanel '_Wm=' num2str(flag_wav_MIMO)...
     '_Ws=' num2str(flag_wav_SISO) '_Mm=' num2str(prm.M)...
     '_Ms=' num2str(prm.M_siso) '_Exp=' num2str(Exp) '.mat'];
 % save(str,'ber_mean','ber_siso_mean','SNR','prm','ber','ber_siso')
+% figure(11)
+% for i=1:50
+% semilogy(ber_siso(i,:))
+% hold on
+% end
