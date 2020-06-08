@@ -29,7 +29,7 @@ prm.n_pilot = prm.Nsymb_ofdm_p*prm.numSC; % Кол-во бит на пилоты SISO
 prm.n_siso = prm.bps_siso*prm.Nsymb_ofdm*prm.numSC;% Длина бинарного потока
 %% Параметры канала
 prm.KFactor = 1;% Для 'RIC'
-prm.SEED = 586;% Для 'RAYL_SPECIAL' 586 122 12   
+prm.SEED = 86;% Для 'RAYL_SPECIAL' 586 122 12   
 prm.SampleRate = 40e6;
 dt = 1/prm.SampleRate;
 switch flag_chanel
@@ -53,7 +53,7 @@ SNR = 0+floor(10*log10(prm.bps)):SNR_MAX+floor(10*log10(prm.bps*prm.numTx));
 prm.MinNumErr = 100; % Порог ошибок для цикла 
 prm.conf_level = 0.95; % Уровень достоверности
 prm.MAX_indLoop = indloop;% Максимальное число итераций в цикле while
-prm.MaxNumZero = 5; %  max кол-во нулевых точек в цикле while
+prm.MaxNumZero = 4; %  max кол-во нулевых точек в цикле while
 Koeff = 1/15;%Кол-во процентов от BER  7%
 Exp = exp;% Кол-во опытов
 for indExp = 1:Exp
@@ -202,6 +202,7 @@ if flag_cor_MIMO ~= 2
 end
 ber_mean = mean(ber,1);
 ber_siso_mean = mean(ber_siso,1);
+SNR = SNR(1:max(size(ber_siso_mean,2),size(ber_mean,2)));
 str = ['DataBase/corM=' num2str(flag_cor_MIMO) '_' num2str(prm.numTx) 'x' num2str(prm.numRx) '_' flag_chanel '_Wm=' num2str(flag_wav_MIMO)...
     '_Ws=' num2str(flag_wav_SISO) '_Mm=' num2str(prm.M)...
     '_Ms=' num2str(prm.M_siso) '_Exp=' num2str(Exp) '.mat'];

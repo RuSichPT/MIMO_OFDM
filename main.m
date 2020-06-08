@@ -1,7 +1,7 @@
 %% ---------Модель MIMO and SISO-------- 
 clear;clc;%close all;
 %% Управление
-flag_chanel = 'RAYL_SPECIAL'; % 'AWGN' ,'RAYL','RIC','RAYL_SPECIAL','STATIC', 'BAD' 
+flag_chanel = 'STATIC'; % 'AWGN' ,'RAYL','RIC','RAYL_SPECIAL','STATIC', 'BAD' 
 flag_cor_MIMO = 1; % 1-коррекция АЧХ (эквалайзер для MIMO) 2-Аламоути
 flag_cor_SISO = 1; % коррекция АЧХ (эквалайзер для SISO)
 flag_wav_MIMO = 0; % вейвлет шумоподавление для MIMO
@@ -53,7 +53,7 @@ SNR_MAX = 100;
 SNR = 0+floor(10*log10(prm.bps)):SNR_MAX+floor(10*log10(prm.bps*prm.numTx));
 prm.MinNumErr = 100; % Порог ошибок для цикла 
 prm.conf_level = 0.95; % Уровень достоверности
-prm.MAX_indLoop = 500;% Максимальное число итераций в цикле while
+prm.MAX_indLoop = 3;% Максимальное число итераций в цикле while
 prm.MaxNumZero = 4; %  max кол-во нулевых точек в цикле while
 Koeff = 1/15;%Кол-во процентов от BER  7%
 Exp = 1;% Кол-во опытов
@@ -206,8 +206,9 @@ if flag_cor_MIMO ~= 2
 end
 ber_mean = mean(ber,1);
 ber_siso_mean = mean(ber_siso,1);
-Eb_N0_M = SNR(1:size(ber_mean,2))-(10*log10(prm.bps));
-Eb_N0_S = SNR(1:size(ber_mean,2))-(10*log10(prm.bps_siso));
+SNR = SNR(1:max(size(ber_siso_mean,2),size(ber_mean,2)));
+Eb_N0_M = SNR-(10*log10(prm.bps));
+Eb_N0_S = SNR-(10*log10(prm.bps_siso));
 Eb_N0 = 0:60;
 ther_ber_1 = berfading(Eb_N0,'qam',16,1);
 % ther_ber_1 = berawgn(Eb_N0,'qam',16);
