@@ -1,20 +1,21 @@
 %% ---------Модель MIMO and SISO-------- 
 clear;clc;%close all;
 %% Управление
-flag_chanel = 'STATIC'; % 'AWGN' ,'RAYL','RIC','RAYL_SPECIAL','STATIC', 'BAD' 
+flag_chanel = 'RAYL_SPECIAL'; % 'AWGN' ,'RAYL','RIC','RAYL_SPECIAL','STATIC', 'BAD' 
 flag_cor_MIMO = 1; % 1-коррекция АЧХ (эквалайзер для MIMO) 2-Аламоути
 flag_cor_SISO = 1; % коррекция АЧХ (эквалайзер для SISO)
-flag_wav_MIMO = 0; % вейвлет шумоподавление для MIMO
-flag_wav_SISO = 0; % вейвлет шумоподавление для SISO
+flag_wav_MIMO = 1; % вейвлет шумоподавление для MIMO
+flag_wav_SISO = 1; % вейвлет шумоподавление для SISO
+flag_picture = 0; % рисует АЧХ сисо
 %% Параметры системы MIMO
 prm.numTx = 2; % Кол-во излучающих антен
 prm.numRx = 2; % Кол-во приемных антен
 prm.numSTS = prm.numTx; % Кол-во потоков
-prm.M = 4;% Порядок модуляции
+prm.M = 16;% Порядок модуляции
 prm.bps = log2(prm.M); % Коль-во бит на символ в секунду
 prm.LEVEL = 3;% Уровень декомпозиции вейвлет шумоподавления min(wmaxlev(N,'db4'),floor(log2(N)))
 %% Параметры системы SISO
-prm.M_siso = 4;% Порядок модуляции
+prm.M_siso = 16;% Порядок модуляции
 prm.bps_siso = log2(prm.M_siso); % Коль-во бит на символ в секунду
 prm.Nsymb_ofdm_p = 1; % Кол-во пилотных символов OFDM 
 %% Параметры OFDM 
@@ -53,7 +54,7 @@ SNR_MAX = 100;
 SNR = 0+floor(10*log10(prm.bps)):SNR_MAX+floor(10*log10(prm.bps*prm.numTx));
 prm.MinNumErr = 100; % Порог ошибок для цикла 
 prm.conf_level = 0.95; % Уровень достоверности
-prm.MAX_indLoop = 3;% Максимальное число итераций в цикле while
+prm.MAX_indLoop = 1;% Максимальное число итераций в цикле while
 prm.MaxNumZero = 4; %  max кол-во нулевых точек в цикле while
 Koeff = 1/15;%Кол-во процентов от BER  7%
 Exp = 1;% Кол-во опытов
@@ -132,13 +133,32 @@ for indExp = 1:Exp
             H_estim = My_helperMIMOChannelEstimate(Mod_data_out(:,1:prm.numSTS,:),ltfSC,prm);
             H_estim_siso = Mod_data_out_siso(:,1)./Mod_data_inp_pilot;
             Mod_data_out_siso(:,1:prm.Nsymb_ofdm_p) = [];
+            %%
+            if flag_picture ==1
+                sp_chanel = fft(H_ist_siso(1,:),450);
+                m = -prm.numSC/2:prm.numSC/2-1;
+                Fanaliz = m*prm.SampleRate/prm.numSC/1e6; % Анализируемые частоты ДПФ
+                figure()
+                plot(20*log10(abs(fftshift(sp_chanel))),'--k')
+                figure()
+                plot(Fanaliz,20*log10(abs(fftshift(H_estim_siso))),'--k')
+                hold on
+                H_estim_siso_w = H_WAV_my(H_estim_siso,prm.LEVEL);
+                plot(Fanaliz,20*log10(abs(fftshift(H_estim_siso_w))),'k','LineWidth',2)
+                grid on
+                hold off
+                legend('После шумоподавления', 'До шумоподавления')
+                xlabel('Частота,MГц')
+                ylabel('Амплитуда,Дб')
+                title('Амплитудно-Частотная характеристика канала SISO');   
+            end 
             %% Вейвлет шумоподавление
             if flag_wav_SISO == 1
                 H_estim_siso = H_WAV_my(H_estim_siso,prm.LEVEL);
             end
             if flag_wav_MIMO == 1
                 H_estim = H_WAV_my_mimo(H_estim,prm.LEVEL);
-            end
+            end    
             %% Эквалайзер 
             %ZF MIMO
             if flag_cor_MIMO == 1
@@ -222,8 +242,3 @@ str = ['DataBase/corM=' num2str(flag_cor_MIMO) '_' num2str(prm.numTx) 'x' num2st
     '_Ws=' num2str(flag_wav_SISO) '_Mm=' num2str(prm.M)...
     '_Ms=' num2str(prm.M_siso) '_Exp=' num2str(Exp) '.mat'];
 % save(str,'ber_mean','ber_siso_mean','SNR','prm','ber','ber_siso')
-% figure(11)
-% for i=1:50
-% semilogy(ber_siso(i,:))
-% hold on
-% end
